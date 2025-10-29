@@ -1,0 +1,24 @@
+# Build
+bin/
+obj/
+out/
+
+# User-specific
+*.user
+*.suo
+*.userosscache
+*.sln.docstates
+
+# Logs
+*.log
+logs/
+
+# Secrets and configs
+appsettings.*.json
+.env
+
+# IDE and misc
+.vscode/
+.idea/
+*.db
+*.sqlite
