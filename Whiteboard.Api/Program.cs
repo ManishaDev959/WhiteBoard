@@ -3,9 +3,26 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using System.Text;
 using Whiteboard.Api.Services;
+using Whiteboard.Api.Hubs;
 using Whiteboard.Data;
 
 var builder = WebApplication.CreateBuilder(args);
+
+// 1️⃣ Add CORS policy
+builder.Services.AddCors(options =>
+{
+    options.AddPolicy("AllowReactApp", policy =>
+    {
+        policy
+            .WithOrigins("http://localhost:3000") // React app URL
+            .AllowAnyHeader()
+            .AllowAnyMethod()
+            .AllowCredentials(); // allow cookies or tokens if needed
+    });
+});
+
+// 🟢 Register SignalR
+builder.Services.AddSignalR();
 
 // Add DbContext
 builder.Services.AddDbContext<WhiteboardDbContext>(options =>
@@ -45,8 +62,13 @@ if (app.Environment.IsDevelopment())
     app.UseSwaggerUI();
 }
 
+
+// 6️⃣ Enable CORS BEFORE authentication/authorization
+app.UseCors("AllowReactApp");
+
 app.UseHttpsRedirection();
 app.UseAuthentication();
 app.UseAuthorization();
 app.MapControllers();
+app.MapHub<AdminHub>("/adminHub"); // 👈 your SignalR hub endpoint
 app.Run();

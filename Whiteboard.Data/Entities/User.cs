@@ -13,6 +13,9 @@ namespace Whiteboard.Data.Entities
         [Required]
         public string PasswordHash { get; set; } = string.Empty;
 
+        [Required, MaxLength(20)]
+        public string Role { get; set; } = "User";
+
         public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 
         public ICollection<Document>? Documents { get; set; }
