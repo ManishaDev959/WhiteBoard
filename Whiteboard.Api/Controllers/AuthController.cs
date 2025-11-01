@@ -17,16 +17,19 @@ namespace Whiteboard.Api.Controllers
         private readonly PasswordService _passwordService;
         private readonly JwtService _jwtService;
 
+        private readonly EmailService _emailService;
+
         private readonly IHubContext<AdminHub> _hubContext;
 
         public AuthController(WhiteboardDbContext db, PasswordService passwordService, JwtService jwtService,
-        IHubContext<AdminHub> hubContext
+        IHubContext<AdminHub> hubContext, EmailService emailService
         )
         {
             _db = db;
             _passwordService = passwordService;
             _jwtService = jwtService;
             _hubContext = hubContext;
+            _emailService = emailService;
         }
 
         [HttpPost("register")]
@@ -41,11 +44,28 @@ namespace Whiteboard.Api.Controllers
                 Id = Guid.NewGuid(),
                 Username = request.Username,
                 PasswordHash = hashedPassword,
+                Email = request.Email,
                 Role = string.IsNullOrWhiteSpace(request.Role) ? "User" : request.Role
             };
 
             _db.Users.Add(user);
-            await _db.SaveChangesAsync();
+            var result = await _db.SaveChangesAsync();
+
+            if (result > 0)
+            {
+                string subject = "🎉 Welcome Onboard!";
+                string body = $@"
+            <h2>Welcome to Our Platform, {user.Username}!</h2>
+            <p>We’re thrilled to have you here. Start exploring your dashboard and make the most of our services!</p>
+            <p><a href='http://localhost:5153/api/Auth/login'>Login Here</a></p>
+            <p>– The Team</p>
+        ";
+
+                await _emailService.SendEmailAsync(user.Email, subject, body);
+
+            }
+
+
 
             await _hubContext.Clients.All.SendAsync("UserRegistered", new
             {

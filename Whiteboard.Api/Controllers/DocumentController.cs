@@ -6,6 +6,8 @@ using Whiteboard.Data;
 using Whiteboard.Api.Models;
 using Whiteboard.Data.Entities;
 using WhiteboardApi.Models;
+using Whiteboard.Api.Hubs;
+using Microsoft.AspNetCore.SignalR;
 
 namespace WhiteboardApi.Controllers
 {
@@ -16,17 +18,19 @@ namespace WhiteboardApi.Controllers
     {
         private readonly WhiteboardDbContext _context;
 
-        public DocumentsController(WhiteboardDbContext context)
+        private readonly IHubContext<AdminHub> _hubContext;
+
+        public DocumentsController(WhiteboardDbContext context, IHubContext<AdminHub> hubContex)
         {
             _context = context;
+            _hubContext = hubContex;
         }
 
-        [HttpGet]
+        // [Authorize(Roles = "Admin")]
+        [HttpGet("GetDocuments")]
         public async Task<IActionResult> GetDocuments()
         {
-            var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
             var documents = await _context.Documents
-                .Where(d => d.OwnerId.ToString() == userId && !d.IsDeleted)
                 .ToListAsync();
             return Ok(documents);
         }
@@ -68,6 +72,20 @@ namespace WhiteboardApi.Controllers
 
             _context.Documents.Add(document);
             await _context.SaveChangesAsync();
+
+            // Get the user's name for the notfications 
+
+            var user = await _context.Users.FindAsync(request.OwnerId);
+
+
+            // 🔥 Broadcast this event to all connected admins
+            await _hubContext.Clients.All.SendAsync("DocumentCreated", new
+            {
+                Username = user?.Username ?? "Unknown User",
+                OwnerId = document.OwnerId,
+                CreatedAt = document.CreatedAt
+            });
+
 
             return Ok(document);
         }
