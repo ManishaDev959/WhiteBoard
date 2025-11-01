@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useRef } from "react";
 import { jwtDecode } from "jwt-decode";
 import Navbar from "../components/Navbar";
 import { useUserContext } from "../contexts/UserContext";
@@ -21,11 +21,76 @@ export default function UserDashboard() {
   const [title, setTitle] = useState("");
   const [content, setContent] = useState("");
   const [loading, setLoading] = useState(false);
-  const [editingDocId, setEditingDocId] = useState(null); // ✅ new
-  const [isEditing, setIsEditing] = useState(false); // ✅ new
-  const { documentCount, setDocumentCount, deletedDocumentCount, setDeletedDocumentCount } = useUserContext();
-  const userId = getUserIdFromToken();
+  const [editingDocId, setEditingDocId] = useState(null);
+  const [isEditing, setIsEditing] = useState(false);
+  const [isListening, setIsListening] = useState(false);
+  const recognitionRef = useRef(null);
+
+  const { documentCount, setDocumentCount, deletedDocumentCount, setDeletedDocumentCount } =
+    useUserContext();
+
   const token = localStorage.getItem("token");
+  const userId = getUserIdFromToken();
+  const username = localStorage.getItem("username") || "User";
+
+
+  const speak = (text) => {
+    const utterance = new SpeechSynthesisUtterance(text);
+    utterance.lang = "en-US";
+    window.speechSynthesis.speak(utterance);
+  };
+
+  const startDictation = () => {
+    if (!("webkitSpeechRecognition" in window)) {
+      alert("Speech recognition not supported in this browser.");
+      return;
+    }
+
+    setIsListening(true);
+    speak(`Hi ${username}, please say your title.`);
+
+    const waitForSpeechEnd = setInterval(() => {
+      if (!window.speechSynthesis.speaking) {
+        clearInterval(waitForSpeechEnd);
+        captureSpeech("title");
+      }
+    }, 500);
+  };
+
+  const captureSpeech = (field) => {
+    const recognition = new window.webkitSpeechRecognition();
+    recognition.continuous = false;
+    recognition.interimResults = false;
+    recognition.lang = "en-US";
+
+    recognition.onresult = (event) => {
+      const transcript = event.results[0][0].transcript.trim();
+      if (field === "title") {
+        setTitle(transcript);
+        speak("Got it. Now please dictate your document content.");
+        setTimeout(() => captureSpeech("content"), 2500);
+      } else {
+        setContent(transcript);
+        speak("Thanks! I’ve captured your document. You can now save it.");
+        setIsListening(false);
+      }
+    };
+
+    recognition.onerror = (err) => {
+      console.error("Speech recognition error:", err);
+      speak("Sorry, I didn’t catch that. Please try again.");
+      setIsListening(false);
+    };
+
+    recognitionRef.current = recognition;
+    recognition.start();
+  };
+
+  const stopDictation = () => {
+    recognitionRef.current?.stop();
+    setIsListening(false);
+    speak("Dictation stopped.");
+  };
 
   useEffect(() => {
     const fetchDocuments = async () => {
@@ -33,14 +98,10 @@ export default function UserDashboard() {
         const response = await fetch("http://localhost:5153/api/Documents/user", {
           headers: { Authorization: `Bearer ${token}` },
         });
-
         if (!response.ok) throw new Error("Failed to fetch documents");
-
-        const data = await response.json(); // ✅ Now it's valid
-        console.log(data); // ✅ This works fine
+        const data = await response.json();
         setDocuments(data);
         setDocumentCount(data.length);
-
       } catch (err) {
         console.error(err);
       }
@@ -48,7 +109,6 @@ export default function UserDashboard() {
 
     fetchDocuments();
   }, [token]);
-
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -67,31 +127,23 @@ export default function UserDashboard() {
           "Content-Type": "application/json",
           Authorization: `Bearer ${token}`,
         },
-        body: JSON.stringify({
-          title,
-          content,
-          ownerId: userId,
-        }),
+        body: JSON.stringify({ title, content, ownerId: userId }),
       });
 
       if (!response.ok) throw new Error("Failed to save document");
       const updatedDoc = await response.json();
 
       if (isEditing) {
-        // 🟢 Update the existing document
         setDocuments((docs) =>
           docs.map((d) => (d.id === editingDocId ? updatedDoc : d))
         );
         setIsEditing(false);
         setEditingDocId(null);
       } else {
-        // 🟢 Add new document
         setDocuments((docs) => [...docs, updatedDoc]);
-        setDocumentCount((prev) => prev + 1); 
-        
+        setDocumentCount((prev) => prev + 1);
       }
 
-      // 🧹 Reset form
       setTitle("");
       setContent("");
     } catch (err) {
@@ -101,9 +153,7 @@ export default function UserDashboard() {
     }
   };
 
-
   const handleEdit = (doc) => {
-    debugger
     setTitle(doc.title);
     setContent(doc.content);
     setEditingDocId(doc.id);
@@ -111,18 +161,13 @@ export default function UserDashboard() {
     window.scrollTo({ top: 0, behavior: "smooth" });
   };
 
-
   const handleDelete = async (id) => {
     if (!window.confirm("Are you sure you want to delete this document?")) return;
-
     await fetch(`http://localhost:5153/api/Documents/${id}`, {
       method: "DELETE",
-      headers:
-       { Authorization: `Bearer ${token}` },
+      headers: { Authorization: `Bearer ${token}` },
     });
-
     setDocuments(documents.filter((d) => d.id !== id));
-
     setDocumentCount((prev) => Math.max(prev - 1, 0));
     setDeletedDocumentCount((prev) => prev + 1);
   };
@@ -134,20 +179,37 @@ export default function UserDashboard() {
     setContent("");
   };
 
+  // ------------------------ UI ------------------------
   return (
     <div className="flex-1 p-8 bg-gray-50 min-h-screen">
       <div className="max-w-5xl mx-auto">
-        <h1 className="text-2xl font-bold text-gray-800 mb-6">My Documents</h1>
+        <div className="flex items-center justify-between mb-6">
+          <h1 className="text-2xl font-bold text-gray-800">
+            {isEditing ? "Edit Document" : "Create New Document"}
+          </h1>
 
-        {/* Create / Edit Document Form */}
+          {/* 🎙️ Dictate Button */}
+          {!isListening ? (
+            <button
+              onClick={startDictation}
+              className="bg-green-600 text-white px-4 py-2 rounded-md hover:bg-green-700"
+            >
+              🎙️ Dictate
+            </button>
+          ) : (
+            <button
+              onClick={stopDictation}
+              className="bg-red-600 text-white px-4 py-2 rounded-md hover:bg-red-700"
+            >
+              🛑 Stop
+            </button>
+          )}
+        </div>
+
         <form
           onSubmit={handleSubmit}
           className="bg-white rounded-xl shadow p-4 mb-6 border border-gray-100"
         >
-          <h2 className="text-lg font-semibold mb-2">
-            {isEditing ? "Edit Document" : "Create New Document"}
-          </h2>
-
           <input
             className="border rounded-md px-3 py-2 w-full mb-3"
             placeholder="Document Title"
@@ -173,8 +235,8 @@ export default function UserDashboard() {
                   ? "Updating..."
                   : "Creating..."
                 : isEditing
-                  ? "Update Document"
-                  : "Create Document"}
+                ? "Update Document"
+                : "Create Document"}
             </button>
 
             {isEditing && (
@@ -198,9 +260,7 @@ export default function UserDashboard() {
                 className="bg-white shadow-md border border-gray-100 rounded-xl p-4 hover:shadow-lg transition"
               >
                 <h3 className="font-semibold text-gray-800 mb-2">{doc.title}</h3>
-                <p className="text-gray-600 text-sm mb-4 line-clamp-3">
-                  {doc.content}
-                </p>
+                <p className="text-gray-600 text-sm mb-4 line-clamp-3">{doc.content}</p>
                 <div className="flex justify-between items-center">
                   <button
                     onClick={() => handleEdit(doc)}

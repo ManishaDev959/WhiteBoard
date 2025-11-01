@@ -8,6 +8,7 @@ import UserDashboard from "./pages/UserDashboard";
 import AdminDashboard from "./pages/AdminDashboard";
 import Trash from "./pages/Trash";
 import { UserProvider } from "./contexts/UserContext";
+import CopilotAssistant from "./components/CopilotAssistant";
 
 // Private route wrapper
 const PrivateRoute = ({ children }) => {
@@ -51,7 +52,9 @@ export default function App() {
         {/* Fallback */}
         <Route path="*" element={<Navigate to="/login" replace />} />
       </Routes>
+         <CopilotAssistant/>
     </Router>
+ 
     </UserProvider>
   );
 }

@@ -6,6 +6,8 @@ export default function AdminDashboard() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [notifications, setNotifications] = useState([]);
+  const [allDocuments, setAllDocuments] = useState([]);
+  const [totalUserCount, setTotalUserCount] = useState([])
 
   const fetchUsers = async () => {
     try {
@@ -27,9 +29,53 @@ export default function AdminDashboard() {
     }
   };
 
+
+
+   const fetchAllusers = async () => {
+    try {
+      const token = localStorage.getItem("token");
+      const response = await fetch("http://localhost:5153/api/Users", {
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
+        },
+      });
+      if (!response.ok) throw new Error("Failed to fetch all users count");
+
+      const data = await response.json();
+      setTotalUserCount(data);
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+    const fetchDocuments = async () => {
+    try {
+      const token = localStorage.getItem("token");
+      const response = await fetch("http://localhost:5153/api/Documents/GetDocuments", {
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
+        },
+      });
+      if (!response.ok) throw new Error("Failed to fetch documents");
+
+      const data = await response.json();
+      setAllDocuments(data);
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   // 🧠 Fetch users on initial load
   useEffect(() => {
     fetchUsers();
+    fetchDocuments();
+    fetchAllusers();
   }, []);
 
   // ⚡ SignalR Live Connection
@@ -50,15 +96,29 @@ export default function AdminDashboard() {
       // 1️⃣ Show in live notifications
       setNotifications((prev) => [
         {
-          message: `👤 ${data.name} just registered (${data.email})`,
+          message: `👤 ${data.name} just registered`,
           time: new Date(data.registeredAt),
         },
         ...prev,
       ]);
 
-      // 2️⃣ Refresh user list dynamically
       fetchUsers();
     });
+
+    connection.on("DocumentCreated", (data) => {
+      console.log("New document created:", data);
+
+      const createdTime = new Date(data.createdAt).toLocaleTimeString();
+
+      setNotifications((prev) => [
+        {
+          message: `${data.username} created a new document "${data.title}" at ${createdTime}`,
+          timestamp: createdTime,
+        },
+        ...prev,
+      ]);
+    });
+
 
     return () => {
       connection.stop();
@@ -105,12 +165,12 @@ export default function AdminDashboard() {
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-10">
         <div className="bg-white shadow rounded-xl p-6 border border-gray-100 hover:shadow-md transition">
           <h3 className="text-gray-600 text-sm mb-2">Total Users</h3>
-          <p className="text-3xl font-bold text-cyan-600">{users.length}</p>
+          <p className="text-3xl font-bold text-cyan-600">{totalUserCount.length}</p>
         </div>
 
         <div className="bg-white shadow rounded-xl p-6 border border-gray-100 hover:shadow-md transition">
-          <h3 className="text-gray-600 text-sm mb-2">Active Documents</h3>
-          <p className="text-3xl font-bold text-cyan-600">17</p>
+          <h3 className="text-gray-600 text-sm mb-2">Total Documents</h3>
+          <p className="text-3xl font-bold text-cyan-600">{allDocuments.length}</p>
         </div>
 
         <div className="bg-white shadow rounded-xl p-6 border border-gray-100 hover:shadow-md transition">
@@ -131,9 +191,6 @@ export default function AdminDashboard() {
             {notifications.map((n, i) => (
               <li key={i} className="py-3 flex justify-between text-gray-700">
                 <span>{n.message}</span>
-                <span className="text-gray-400 text-xs">
-                  {n.time.toLocaleTimeString()}
-                </span>
               </li>
             ))}
           </ul>
