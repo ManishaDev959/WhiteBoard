@@ -27,5 +27,7 @@ namespace Whiteboard.Data.Entities
         // Related entities
         public ICollection<Stroke>? Strokes { get; set; }
         public ICollection<TextChange>? TextChanges { get; set; }
+
+        public ICollection<FileDocument> FileDocuments { get; set;}
     }
 }

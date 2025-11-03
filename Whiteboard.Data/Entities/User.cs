@@ -1,3 +1,5 @@
+using System;
+using System.Collections.Generic;
 using System.ComponentModel.DataAnnotations;
 
 namespace Whiteboard.Data.Entities
@@ -10,6 +12,8 @@ namespace Whiteboard.Data.Entities
         [Required, MaxLength(50)]
         public string Username { get; set; } = string.Empty;
 
+        public string? Email { get; set; }
+
         [Required]
         public string PasswordHash { get; set; } = string.Empty;
 
@@ -18,6 +22,10 @@ namespace Whiteboard.Data.Entities
 
         public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 
-        public ICollection<Document>? Documents { get; set; }
+        // 🟢 Navigation properties
+        public ICollection<Document>? Documents { get; set; } = new List<Document>();
+
+        // 🟢 Each user can upload multiple files
+        public ICollection<FileDocument>? FileDocuments { get; set; } = new List<FileDocument>();
     }
 }

@@ -15,6 +15,10 @@ namespace Whiteboard.Data
         public DbSet<Stroke> Strokes => Set<Stroke>();
         public DbSet<TextChange> TextChanges => Set<TextChange>();
 
+        public DbSet<FileDocument> FileDocuments => Set<FileDocument>();
+
+
+
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
             base.OnModelCreating(modelBuilder);
@@ -37,6 +41,21 @@ namespace Whiteboard.Data
                 .WithMany(d => d.TextChanges)
                 .HasForeignKey(t => t.DocumentId)
                 .OnDelete(DeleteBehavior.Cascade);
+
+
+            // ✅ FileDocument relationship
+            modelBuilder.Entity<FileDocument>()
+                .HasOne(fd => fd.Owner)
+                .WithMany(u => u.FileDocuments)
+                .HasForeignKey(fd => fd.OwnerId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            modelBuilder.Entity<FileDocument>()
+                .HasOne(fd => fd.Document)
+                .WithMany(d => d.FileDocuments)
+                .HasForeignKey(fd => fd.DocumentId)
+                .OnDelete(DeleteBehavior.SetNull);
+
         }
     }
 }
