@@ -16,7 +16,6 @@ export default function Register() {
 
   const handleChange = (e) => {
     const updatedData = setFormData({ ...formData, [e.target.name]: e.target.value });
-    console.log(updatedData)
   };
 
   const handleSubmit = async (e) => {

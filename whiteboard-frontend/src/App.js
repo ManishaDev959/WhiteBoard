@@ -9,6 +9,9 @@ import AdminDashboard from "./pages/AdminDashboard";
 import Trash from "./pages/Trash";
 import { UserProvider } from "./contexts/UserContext";
 import CopilotAssistant from "./components/CopilotAssistant";
+import ReportFilters from "./pages/ReportsFilters";
+import ReportsDashboard from "./pages/ReportDashboard";
+import InsightsDashboard from "./pages/InsightsDashboard";
 
 // Private route wrapper
 const PrivateRoute = ({ children }) => {
@@ -24,6 +27,7 @@ export default function App() {
     <Router>
       <Routes>
         {/* Public routes */}
+         <Route path="/" element={<Register />} />
         <Route path="/register" element={<Register />} />
         <Route path="/login" element={<Login />} />
 
@@ -47,6 +51,16 @@ export default function App() {
            {role === "User" && (
             <Route path="/trash" element={<Trash />} />
           )}
+          {role === "Admin" &&
+          (
+            <Route path = '/reports' element={<ReportsDashboard/>}/>
+          )}
+            {role === "Admin" &&
+          (
+            <Route path = '/insights' element={<InsightsDashboard/>}/>
+          )
+
+          }
         </Route>
 
         {/* Fallback */}
